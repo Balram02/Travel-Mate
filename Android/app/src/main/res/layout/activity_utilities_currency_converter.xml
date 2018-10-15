@@ -44,7 +44,6 @@
                 android:background="#f5f5f5"
                 android:padding="10sp">
 
-
                 <RelativeLayout
                     android:id="@+id/from_field"
                     android:layout_width="match_parent"
@@ -87,10 +86,10 @@
 
         </RelativeLayout>
 
-
         <RelativeLayout
             android:id="@+id/relativeLayout"
             android:layout_width="wrap_content"
+
             android:layout_height="wrap_content"
             android:layout_below="@+id/layout_from">
 
@@ -182,5 +181,4 @@
             android:visibility="gone" />
 
     </RelativeLayout>
-
 </RelativeLayout>
