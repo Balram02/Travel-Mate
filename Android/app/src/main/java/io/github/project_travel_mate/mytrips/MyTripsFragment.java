@@ -18,6 +18,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.RelativeLayout;
+import android.widget.TextView;
 
 import com.airbnb.lottie.LottieAnimationView;
 
@@ -26,7 +28,6 @@ import org.json.JSONException;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -41,6 +42,7 @@ import okhttp3.Response;
 import utils.TravelmateSnackbars;
 
 import static android.app.Activity.RESULT_OK;
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static utils.Constants.API_LINK_V2;
 import static utils.Constants.USER_TOKEN;
 
@@ -52,6 +54,10 @@ public class MyTripsFragment extends Fragment implements SwipeRefreshLayout.OnRe
     SwipeRefreshLayout swipeRefreshLayout;
     @BindView(R.id.rv)
     RecyclerView mRecyclerView;
+    @BindView(R.id.my_trips_main_layout)
+    RelativeLayout my_trips_main_layout;
+    @BindView(R.id.my_trips_no_items)
+    TextView noTrips;
     private String mToken;
     private Handler mHandler;
     private Activity mActivity;
@@ -59,12 +65,10 @@ public class MyTripsFragment extends Fragment implements SwipeRefreshLayout.OnRe
     static int ADDNEWTRIP_ACTIVITY = 203;
     private View mTripsView;
 
-    private List<Trip> mTripList = new ArrayList<>();
-
-
     public MyTripsFragment() {
         // Required empty public constructor
     }
+
     public static MyTripsFragment newInstance() {
         return new MyTripsFragment();
     }
@@ -82,11 +86,12 @@ public class MyTripsFragment extends Fragment implements SwipeRefreshLayout.OnRe
         swipeRefreshLayout.setOnRefreshListener(this);
         mRecyclerView.setHasFixedSize(true);
         mRecyclerView.setLayoutManager(getLayoutManager());
-        mMyTripsAdapter = new TripsListAdapter(mTripList);
-        mMyTripsAdapter.setOnItemClickListener((position, v) -> {
+        mMyTripsAdapter = new TripsListAdapter(new ArrayList<>());
+        mMyTripsAdapter.setOnItemClickListener((trip) -> {
             Intent intent = MyTripInfoActivity.getStartIntent(mActivity.getApplicationContext(),
-                    mTripList.get(position));
-            mActivity.getApplicationContext().startActivity(intent);
+                    trip);
+            intent.setFlags(FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
         });
         mRecyclerView.setAdapter(mMyTripsAdapter);
         mytrip();
@@ -99,6 +104,8 @@ public class MyTripsFragment extends Fragment implements SwipeRefreshLayout.OnRe
     }
 
     private void mytrip() {
+
+        swipeRefreshLayout.setRefreshing(true);
 
         String uri = API_LINK_V2 + "get-all-trips";
 
@@ -124,7 +131,6 @@ public class MyTripsFragment extends Fragment implements SwipeRefreshLayout.OnRe
             public void onResponse(Call call, final Response response) {
 
                 mHandler.post(() -> {
-                    swipeRefreshLayout.setRefreshing(false);
                     if (response.isSuccessful() && response.body() != null) {
                         JSONArray arr;
                         try {
@@ -134,30 +140,34 @@ public class MyTripsFragment extends Fragment implements SwipeRefreshLayout.OnRe
 
                             if (arr.length() < 1) {
                                 noResults();
-                                return;
-                            }
-
-                            for (int i = arr.length() - 1; i >= 0; i--) {
-                                String id = arr.getJSONObject(i).getString("id");
-                                String start = arr.getJSONObject(i).getString("start_date_tx");
-                                String end = arr.getJSONObject(i).optString("end_date", null);
-                                String name = arr.getJSONObject(i).getJSONObject("city").getString("city_name");
-                                String tname = arr.getJSONObject(i).getString("trip_name");
-                                String image = arr.getJSONObject(i).getJSONObject("city").getString("image");
-                                mTripList.add(new Trip(id, name, image, start, end, tname));
+                                noTrips.setVisibility(View.VISIBLE);
+                            } else {
+                                noTrips.setVisibility(View.GONE);
+                                ArrayList<Trip> trips = new ArrayList<>();
+                                for (int i = 0; i < arr.length(); i++) {
+                                    String id = arr.getJSONObject(i).getString("id");
+                                    String start = arr.getJSONObject(i).getString("start_date_tx");
+                                    boolean isPublic = arr.getJSONObject(i).getBoolean("is_public");
+                                    String end = arr.getJSONObject(i).optString("end_date", null);
+                                    String name = arr.getJSONObject(i).getJSONObject("city").getString("city_name");
+                                    String tname = arr.getJSONObject(i).getString("trip_name");
+                                    String image = arr.getJSONObject(i).getJSONObject("city").getString("image");
+                                    trips.add(new Trip(id, name, image, start, end, tname, isPublic));
+                                }
                                 animationView.setVisibility(View.GONE);
+                                my_trips_main_layout.setVisibility(View.VISIBLE);
+                                mMyTripsAdapter.initData(trips);
                             }
-                            mMyTripsAdapter.notifyItemRangeInserted(0, arr.length());
 
                         } catch (JSONException | IOException | NullPointerException e) {
                             e.printStackTrace();
                             Log.e("ERROR", "Message : " + e.getMessage());
                             networkError();
                         }
-
                     } else {
                         networkError();
                     }
+                    swipeRefreshLayout.setRefreshing(false);
                 });
             }
         });
@@ -165,8 +175,8 @@ public class MyTripsFragment extends Fragment implements SwipeRefreshLayout.OnRe
 
     @OnClick(R.id.add_trip)
     void addTrip() {
-        Intent intent = new Intent(getContext() , AddNewTripActivity.class);
-        startActivityForResult(intent , ADDNEWTRIP_ACTIVITY);
+        Intent intent = new Intent(getContext(), AddNewTripActivity.class);
+        startActivityForResult(intent, ADDNEWTRIP_ACTIVITY);
 
     }
 
@@ -175,6 +185,9 @@ public class MyTripsFragment extends Fragment implements SwipeRefreshLayout.OnRe
      */
     private void networkError() {
         animationView.setAnimation(R.raw.network_lost);
+        animationView.setVisibility(View.VISIBLE);
+        swipeRefreshLayout.setRefreshing(false);
+        my_trips_main_layout.setVisibility(View.GONE);
         animationView.playAnimation();
     }
 
@@ -182,9 +195,12 @@ public class MyTripsFragment extends Fragment implements SwipeRefreshLayout.OnRe
      * Plays the no results animation in the view
      */
     private void noResults() {
+        ArrayList<Trip> trips = new ArrayList<>();
+        mMyTripsAdapter.initData(trips);
         TravelmateSnackbars.createSnackBar(mTripsView.findViewById(R.id.my_trips_frag), R.string.no_trips,
-                Snackbar.LENGTH_LONG).show();
+                Snackbar.LENGTH_SHORT).show();
         animationView.setAnimation(R.raw.empty_list);
+        animationView.setVisibility(View.VISIBLE);
         animationView.playAnimation();
     }
 
@@ -198,20 +214,18 @@ public class MyTripsFragment extends Fragment implements SwipeRefreshLayout.OnRe
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == ADDNEWTRIP_ACTIVITY && resultCode == RESULT_OK) {
-            if (mMyTripsAdapter != null) {
-                mMyTripsAdapter.notifyDataSetChanged();
-            }
             mytrip();
         }
     }
+
     @Override
     public void onResume() {
+        mytrip();
         super.onResume();
     }
 
     @Override
     public void onRefresh() {
         mytrip();
-        swipeRefreshLayout.setRefreshing(true);
     }
 }

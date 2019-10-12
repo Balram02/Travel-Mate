@@ -1,5 +1,6 @@
 package io.github.project_travel_mate.utilities;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Build;
@@ -10,16 +11,9 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.EditText;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.Currency;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
-import java.util.StringTokenizer;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -37,7 +31,7 @@ public class TimezoneListViewActivity extends Activity implements TextWatcher {
 
     public static ArrayList<ZoneName> timezone_names;
     private Context mContext;
-
+    private static final  String mTAG = "TimezoneListViewAct";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,19 +49,33 @@ public class TimezoneListViewActivity extends Activity implements TextWatcher {
     }
 
     /**
-     * add times to list adapter
+     * Add timezones as well as the country codes <br>
+     *     The country codes will be used by com.github.blongho:world-country-data to get the flag of the country
+     *
      */
     public void addTimezones() {
-        String[] locales = Locale.getISOCountries();
-        for (String countryCode : locales) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            String[] locales = Locale.getISOCountries();
+            for (String countryCode : locales) {
                 for (String id : android.icu.util.TimeZone.getAvailableIDs(countryCode)) {
+                    final String zone = displayTimeZone(TimeZone.getTimeZone(id));
+                    if (!zone.equalsIgnoreCase("GMT (GMT0:00)")) {
+                        // Add timezone to result map
+                        timezone_names.add(new ZoneName(zone, countryCode));
+                    }
+                }
+            }
+        } else {
+            for (String id : java.util.TimeZone.getAvailableIDs()) {
+                final String zone = displayTimeZone(TimeZone.getTimeZone(id));
+                if (!zone.equalsIgnoreCase("GMT (GMT0:00)")) {
                     // Add timezone to result map
-                    timezone_names.add(new ZoneName(displayTimeZone(TimeZone.getTimeZone(id)), getFlagId(countryCode)));
+                    timezone_names.add(new ZoneName(zone, id));
                 }
             }
 
         }
+
 
         Collections.sort(timezone_names, (n1, n2) -> n1.shortName.compareTo(n2.shortName));
 
@@ -78,9 +86,10 @@ public class TimezoneListViewActivity extends Activity implements TextWatcher {
     }
 
     /**
-     * @param tz
-     * @return
+     * @param tz - timexome to be displayed
+     * @return - formatted timezone value
      */
+    @SuppressLint ("DefaultLocale")
     private static String displayTimeZone(TimeZone tz) {
         long hours = TimeUnit.MILLISECONDS.toHours(tz.getRawOffset());
         long minutes = TimeUnit.MILLISECONDS.toMinutes(tz.getRawOffset())
@@ -88,7 +97,7 @@ public class TimezoneListViewActivity extends Activity implements TextWatcher {
         // avoid -4:-30 issue
         minutes = Math.abs(minutes);
 
-        String result = "";
+        String result;
         if (hours > 0) {
             result = tz.getID() + " " + String.format("(GMT+%d:%02d)", hours, minutes);
         } else {
@@ -96,28 +105,6 @@ public class TimezoneListViewActivity extends Activity implements TextWatcher {
         }
 
         return result;
-    }
-
-    /**
-     * @param countryCode
-     * @return
-     */
-    private String getFlagId(String countryCode) {
-        String currencySymbol = "";
-        Locale locale = null;
-        Currency currency = null;
-        try {
-            locale = new Locale("", countryCode);
-            currency = Currency.getInstance(locale);
-        } catch (IllegalArgumentException e) {
-            e.printStackTrace();
-        }
-
-        if (currency != null) {
-            currencySymbol = currency.getCurrencyCode();
-        }
-
-        return currencySymbol;
     }
 
     @Override

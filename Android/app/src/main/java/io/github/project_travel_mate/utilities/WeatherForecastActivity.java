@@ -13,7 +13,6 @@ import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
-import android.widget.TextView;
 
 import com.airbnb.lottie.LottieAnimationView;
 
@@ -28,9 +27,8 @@ import butterknife.BindView;
 import butterknife.ButterKnife;
 import io.github.project_travel_mate.R;
 import io.github.project_travel_mate.destinations.description.WeatherActivity;
-import io.github.project_travel_mate.searchcitydialog.CitySearchDialogCompat;
+import io.github.project_travel_mate.searchcitydialog.CitySearchBottomSheetDialogFragment;
 import io.github.project_travel_mate.searchcitydialog.CitySearchModel;
-import ir.mirrajabi.searchdialog.core.SearchResultListener;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.OkHttpClient;
@@ -75,14 +73,17 @@ public class WeatherForecastActivity extends AppCompatActivity {
      * Displays a Search Dialog
      */
     private void showSearchDialog() {
-        new CitySearchDialogCompat(WeatherForecastActivity.this, getString(R.string.search_title),
-                getString(R.string.search_hint), null, mSearchCities,
-                (SearchResultListener<CitySearchModel>) (dialog, item, position) -> {
-                    Intent intent = WeatherActivity.getStartIntent(WeatherForecastActivity.this, item.getName(),
-                            item.getId(), true);
-                    startActivity(intent);
-                    dialog.dismiss();
-                }).show();
+        CitySearchBottomSheetDialogFragment citySearchBottomSheetDialogFragment =
+                CitySearchBottomSheetDialogFragment.newInstance(R.string.search_title, R.string.search_hint);
+        citySearchBottomSheetDialogFragment.setmCitySearchModels(mSearchCities);
+        citySearchBottomSheetDialogFragment.setmListener(position -> {
+            CitySearchModel item = mSearchCities.get(position);
+            Intent intent = WeatherActivity.getStartIntent(WeatherForecastActivity.this, item.getName(),
+                    item.getId(), true);
+            startActivity(intent);
+            citySearchBottomSheetDialogFragment.dismissAllowingStateLoss();
+        });
+        citySearchBottomSheetDialogFragment.show(getSupportFragmentManager(), "CitySearch");
     }
 
     /**

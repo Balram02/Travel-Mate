@@ -40,9 +40,8 @@ import java.util.Objects;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import io.github.project_travel_mate.R;
-import io.github.project_travel_mate.searchcitydialog.CitySearchDialogCompat;
+import io.github.project_travel_mate.searchcitydialog.CitySearchBottomSheetDialogFragment;
 import io.github.project_travel_mate.searchcitydialog.CitySearchModel;
-import ir.mirrajabi.searchdialog.core.SearchResultListener;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.OkHttpClient;
@@ -168,7 +167,7 @@ public class HotelsActivity extends AppCompatActivity implements View.OnClickLis
                                     for (int i = 0; i < itemsSize; i++) {
                                         jo = feedItems.getJSONObject(i);
                                         hotelsModel = new HotelsModel(jo.getString("title"),
-                                                jo.getString("address").toString(),
+                                                jo.getString("address"),
                                                 jo.optString("phone", "000"),
                                                 jo.optString("href"),
                                                 jo.getInt("distance"),
@@ -202,7 +201,7 @@ public class HotelsActivity extends AppCompatActivity implements View.OnClickLis
      */
     private void fetchCitiesList() {
 
-        String uri = API_LINK_V2 + "get-all-cities/10";
+        String uri = API_LINK_V2 + "get-all-cities/5000";
         Log.v("EXECUTING", uri);
 
         //Set up client
@@ -298,15 +297,18 @@ public class HotelsActivity extends AppCompatActivity implements View.OnClickLis
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.select_city:
-                new CitySearchDialogCompat(HotelsActivity.this, getString(R.string.search_title),
-                        getString(R.string.search_hint), null, mSearchCities,
-                        (SearchResultListener<CitySearchModel>) (dialog, item, position) -> {
-                            mSelectedCity = item;
-                            String selectedCity = item.getId();
-                            selectCity.setText(String.format(getString(R.string.showing_hotels), item.getName()));
-                            dialog.dismiss();
-                            getCityInfo(selectedCity);
-                        }).show();
+                CitySearchBottomSheetDialogFragment citySearchBottomSheetDialogFragment =
+                        CitySearchBottomSheetDialogFragment.newInstance(R.string.search_title, R.string.search_hint);
+                citySearchBottomSheetDialogFragment.setmCitySearchModels(mSearchCities);
+                citySearchBottomSheetDialogFragment.setmListener(position -> {
+                    CitySearchModel item = mSearchCities.get(position);
+                    mSelectedCity = item;
+                    String selectedCity = item.getId();
+                    selectCity.setText(String.format(getString(R.string.showing_hotels), item.getName()));
+                    citySearchBottomSheetDialogFragment.dismissAllowingStateLoss();
+                    getCityInfo(selectedCity);
+                });
+                citySearchBottomSheetDialogFragment.show(getSupportFragmentManager(), "CitySearch");
                 recyclerView.setAdapter(null);
                 break;
         }
@@ -378,7 +380,7 @@ public class HotelsActivity extends AppCompatActivity implements View.OnClickLis
                     }
                 });
                 holder.book.setOnClickListener(view -> {
-                    Intent browserIntent = null;
+                    Intent browserIntent;
                     try {
                         browserIntent = new Intent(Intent.ACTION_VIEW,
                                 Uri.parse(mHotelsModelList.get(position).getHref()));
